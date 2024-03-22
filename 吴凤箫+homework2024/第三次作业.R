@@ -7,8 +7,8 @@
 #---------------------------------------------------------------------------------
 
 #Import and save data
-
-data <- read.xlsx("D://吴凤箫//homework//studentgrades.xlsx",1)
+library(xlsx)
+data <- read.xlsx("D://吴凤箫//homework_2024//吴凤箫+homework2024//studentgrades.xlsx",1)
 
 #Inspect data structure
 
@@ -29,8 +29,8 @@ row_has_missing <- apply(data, 1, function(row) any(is.na(row)))
 column_values <- data$column_name
 
 # Select a column
-
-selected_column <- select(data, column_name)
+library(tidyverse)
+selected_column <- select(data, Science)
 
 # Add a new column
 
@@ -42,6 +42,7 @@ data <- mutate(data, sum=Science+Social.Studies)
 library(tidyr)
 data$Science <- as.character(data$Science)
 data$Social.Studies <- as.character(data$Social.Studies)
+data$Math <- as.character(data$Math)
 data$sum <- as.character(data$sum)
 long_data <- pivot_longer(data, cols =-StudentID, names_to = "variable_name", values_to = "value")
 
