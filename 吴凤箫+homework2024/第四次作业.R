@@ -7,8 +7,7 @@ data(mtcars)
 
 # Data preparation and pre-process
 # Convert cyl and vs to factors
-mtcars$cyl <- as.factor(mtcars$cyl)
-mtcars$vs <- as.factor(mtcars$vs)
+sum(is.na(mpg))
 
 # Split the data into training and testing sets
 set.seed(123)
@@ -38,3 +37,12 @@ r_squared <- R2(predictions, testData$mpg)
 
 cat("RMSE: ", rmse, "\n")
 cat("R-squared: ", r_squared, "\n")
+
+# Plot actual vs. predicted values
+ggplot(data = testData, aes(x = mpg, y = predictions)) +
+  geom_point() +
+  geom_abline(color = "red") +
+  labs(x = "Actual MPG", y = "Predicted MPG", title = "Actual vs. Predicted MPG")
+
+# Feature importance plot
+varImpPlot(model$finalModel)
