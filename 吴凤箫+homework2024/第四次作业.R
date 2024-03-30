@@ -1,6 +1,7 @@
 # Load required libraries
 library(caret)
 library(randomForest)
+library(ggplot2)
 
 # Load the dataset
 data(mtcars)
