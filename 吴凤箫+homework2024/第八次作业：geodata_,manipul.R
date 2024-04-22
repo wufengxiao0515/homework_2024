@@ -6,68 +6,85 @@
 #Date: 2024-04-21
 #---------------------------------------------------------------------------------
 
-library(qgisprocess)
-library(raster)
+#加载所需的数据包：
+
+library(terra)
 library(sf)
+library(qgisprocess)
+library(ggplot2)
+library(dplyr)
+library(rgdal)
 
-#绘制高程图
+# 创建2-km缓冲区
 
-elevation<-raster("D://吴凤箫//homework//map//map.tif")
+# 载入所需数据
 
-plot(elevation)
+doubs_dem <- terra::rast("D://吴凤箫//homework//map//map.tif")
+doubs_river <- sf::st_read("D://吴凤箫//homework//map//river.shp")
+doubs_points <- sf::st_read("D://吴凤箫//homework//map//points.shp")
 
-#读取点数据，按照样点裁切高程数据
+# 转换投影坐标系及设置地理坐标系
 
-pts<-doubs_path <- st_read("D://吴凤箫//homework//map//points.shp")
-crs(pts)#查看点坐标系
-extent(pts)#查看样点范围
-crs(elevation)#查看高程坐标系
-extent(elevation)#查看高程地理范围
-E<-extent(pts)+c(-2000,2000,-2000,2000)#每个点周围增加2000m缓冲区
-elevation_crop<-crop(elevation,E)#用带有一定面积缓冲区裁切高程数据
-plot(elevation_crop)#绘制裁切后的高程图
+doubs_river_utm <- st_transform(doubs_river,32631)
+doubs_points_pts<-st_transform(doubs_points,32631)
+utm_crs <- "EPSG:32631"
+doubs_dem_utm <- terra::project(doubs_dem,utm_crs)
+terra::crs(doubs_dem_utm)
 
-#计算地形参数并绘图
+# 建立缓冲区
 
-slope<-terrain(elevation_crop,"slope")#计算坡度
-flow_dir_raster <- terrain(elevation_crop, opt = "flowdir")#计算流向栅格数据
-flow_accum_raster <- area(flow_dir_raster)#计算流域面积
-topo<-stack(elevation_crop,slope,flow_accum_raster,flow_dir_raster)#生成栅格线
-plot(topo)
+doubs_river_buffer <- st_buffer(doubs_river_utm,dist = 2000)
+plot(st_geometry(doubs_river_buffer),axes = TRUE)
+library(ggplot2)
+ggplot() + geom_sf(data = doubs_river_buffer) # 自行转换为地理坐标系
 
-#提取地形参数的数值
+# 裁剪所需高程数据
 
-flow_accum_values <- extract(flow_accum_raster, pts)
-slope_values <- extract(slope, pts)
+# 进行裁剪
 
-#加载doubs其他的环境变量
+doubs_dem_utm_cropped = crop(doubs_dem_utm,doubs_river_buffer)
+doubs_dem_utm_masked = mask(doubs_dem_utm_cropped,doubs_river_buffer)
 
-library(ade4)
-data(doubs)
-write.csv(doubs$env,file = "D://吴凤箫//homework//map//env.csv")
-other_factors <- read.csv("D://吴凤箫//homework//map//env.csv")
-place<-read.csv("D://吴凤箫//homework//homework.csv")
+# 可视化
 
-# 创建两个 30 行 12 列的空数据框
+plot(doubs_dem_utm_masked,axes =TRUE)
 
-new_data_slope <- matrix(NA, nrow = 30, ncol = 12)
-new_data_flow <- matrix(NA, nrow = 30, ncol = 12)
+# 提取集水区面积
 
-# 将 25 个数据填充到数据框中，按照列优先的顺序填充
+library(qgisprocess)
+qgis_search_algorithms("wetness") |>
+  dplyr::select(provider_title,algorithm) |>
+  head(2)
 
-new_data_slope[1:25] <- slope_values
-new_data_flow[1:25] <- flow_accum_values
+topo_total = qgisprocess::qgis_run_algorithm(
+  alg = "sagang:sagwetnessindex",
+  DEM = doubs_dem_utm_masked,
+  SLOPE_TYPE = 1,
+  SLOPE = tempfile(fileext = ".sdat"),
+  AREA = tempfile(fileext = ".sdat"),
+  .quiet = TRUE)
 
-# 将矩阵转换为数据框
+topo_select <- topo_total[c("AREA","SLOPE")] |>
+  unlist() |>
+  rast()
 
-new_data_df_slope <- as.data.frame(new_data_slope)
-new_data_df_flow <- as.data.frame(new_data_flow)
+names(topo_select) = c("carea","cslope")
+origin(topo_select) = origin(doubs_dem_utm_masked)
+topo_char = c(doubs_dem_utm_masked,topo_select)
+topo_env <- terra::extract(topo_char,doubs_points_utm,ID = FALSE)
 
-# 将所有向量合并到一个数据框中
-merged_data <- data.frame(new_data_df_slope, new_data_df_flow, other_factors,place)
+# 增加环境数据
+# 载入数据
+
+Doubs
+water_env <- env
+
+# 增加数据列
+
+doubs_env = cbind(doubs_points_utm,topo_env,water_env)
 
 # 将数据框转换为 sf 对象
-doubs_sf <- st_as_sf(merged_data, coords = c("Longitude", "Latitude"))
+doubs_sf <- st_as_sf(doubs_env, coords = c("Longitude", "Latitude"))
 
 # 保存 sf 对象
 st_write(doubs_sf, "doubs_sf.shp")
