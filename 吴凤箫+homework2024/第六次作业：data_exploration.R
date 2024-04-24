@@ -5,11 +5,12 @@
 #Email: wfx1876@163.com
 #Date: 2024-04-12
 #---------------------------------------------------------------------------------
-# 加载所需的库
+#加载所需的库
 
 library(corrplot)
 library(ade4)
 library(car)
+
 # 加载数据集
 
 data(doubs)
@@ -45,3 +46,52 @@ for (i in 1:11) {
          main = paste("Relationship between", colnames(envdata_complete)[i], "and",colnames(fishdata_complete[j])))
   }
 }
+
+#计算鱼类与环境因素之间的相关性
+#计算鱼类数量与环境因素之间的相关性
+
+fish_data <- doubs$fish
+env_data <- doubs$env
+fish_env_cor <- cor(fish_data, env_data)
+
+#输出相关性矩阵
+
+print(fish_env_cor)
+
+#可视化相关性矩阵
+
+library(corrplot)
+corrplot(fish_env_cor, method = "color")
+
+#主成分分析
+#加载所需包
+
+install.packages("FactoMineR")
+install.packages("factoextra")
+library(FactoMineR)
+library(factoextra)
+
+#提取环境因素数据
+
+env_data <- doubs$env[, c("dfs", "alt", "slo", "flo", "pH", "har", "pho", "nit", "amm", "oxy", "bdo")]
+
+#进行主成分分析
+
+pca_result <- PCA(env_data, graph = FALSE)
+
+#提取主成分分析结果
+
+pca_var <- get_pca_var(pca_result)
+pca_ind <- get_pca_ind(pca_result)
+
+#绘制主成分分析的解释方差比例图
+
+fviz_eig(pca_result, addlabels = TRUE)
+
+#绘制主成分分析的因子负荷量图
+
+fviz_pca_var(pca_result, col.var = "contrib", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"))
+
+#绘制主成分分析的个体得分图
+
+fviz_pca_ind(pca_result, geom = "point", habillage = doubs$fish)
